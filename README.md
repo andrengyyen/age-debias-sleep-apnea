@@ -38,8 +38,8 @@ shape the learned representation:
 
 The two demographic cohorts are:
 
-* **Young:** $\le 50$ years
-* **Old:** $> 50$ years
+* **Young:** $< 40$ years
+* **Old:** $\geq 40$ years
 
 ---
 
