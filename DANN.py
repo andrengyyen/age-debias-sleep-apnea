@@ -1,25 +1,22 @@
 """
-dann_fair.py
+DANN.py
 ============================================================
-Corrected DANN for age-fair sleep-apnea detection, plus a hyperparameter
+DANN for age-fair sleep-apnea detection, plus a hyperparameter
 ablation runner.
 
-What this fixes / adds vs. model_with_two_heads.py
 --------------------------------------------------
 1. GradientReversalLayer.alpha is now a non-trainable tf.Variable, read live
    at execution time. The GRLAlphaScheduler can therefore actually change it
-   during training (your previous schedule was frozen at trace time).
+   during training (previous schedule was frozen at trace time).
 2. Optional CLASS-CONDITIONAL adversary (`conditional=True`): the age head is
    conditioned on the apnea label, which targets EQUALIZED ODDS (both the
-   sensitivity AND specificity gaps) rather than only the marginal alignment
-   that vanilla DANN gives you.
+   sensitivity AND specificity gaps).
 3. Stratified evaluation that reports per-age-group sensitivity/specificity
    and the gaps, robust to a group missing a class.
 4. An ablation runner that sweeps max_alpha x schedule x conditional x seed
-   and writes a tidy CSV you can drop straight into a paper table.
+   and writes a CSV.
 
-Data loaders are imported from your existing module so this stays a thin,
-focused file. If the import path differs, adjust MODULE_NAME below.
+Data loaders are imported from existing baseline.py.
 ============================================================
 """
 
@@ -40,13 +37,10 @@ from tensorflow.keras.callbacks import (
 )
 from sklearn.metrics import confusion_matrix, f1_score, roc_curve, auc
 
-# --- Reuse your data pipeline -------------------------------------------------
-# These three functions don't depend on the buggy GRL, so importing is safe.
-MODULE_NAME = "model_with_two_heads"
-from model_with_two_heads import (   # noqa: E402
-    load_ucddb_data,
+# --- Reuse data pipeline -------------------------------------------------
+from baseline import (  
     load_and_preprocess_data,
-    split_train_val_by_patient,
+    split_train_val,
 )
 
 NUM_AGE_GROUPS = 2          # 0 = young, 1 = old (per your preprocessing.py)
@@ -61,7 +55,7 @@ class GradientReversalLayer(Layer):
 
     alpha is a non-trainable tf.Variable, so a callback can update it via
     set_alpha() and the change is picked up at the next training step WITHOUT
-    re-tracing the graph (this was the core bug in the original).
+    re-tracing the graph.
     """
     def __init__(self, alpha=1.0, **kwargs):
         super().__init__(**kwargs)          # let Keras own `name`
@@ -409,12 +403,10 @@ def run_ablation(data, total_epochs=100, out_csv="dann_ablation_results.csv"):
 # 6. Main
 # ============================================================
 def prepare_data():
-    x_train_full, y_train_full, age_train_full, g_train_full = load_ucddb_data()
-    # x_train_full, y_train_full, age_train_full, g_train_full, x_test, y_test, age_test, g_test = load_and_preprocess_data()
-    _,_,_,_, x_test, y_test, age_test, g_test = load_and_preprocess_data()
+    x_train_full, y_train_full, age_train_full, g_train_full, x_test, y_test, age_test, g_test = load_and_preprocess_data()
 
     x_train, y_train, age_train, _, x_val, y_val, age_val, _ = \
-        split_train_val_by_patient(x_train_full, y_train_full,
+        split_train_val(x_train_full, y_train_full,
                                    age_train_full, g_train_full, test_size=0.20)
 
     to_cat = keras.utils.to_categorical
@@ -427,10 +419,10 @@ def prepare_data():
 
 if __name__ == "__main__":
     data = prepare_data()
-    # Quick single run (conditional adversary, fixed alpha schedule):
+    # Quick single run:
     out, model = train_one(
         dict(max_alpha=0.7, schedule="linear", conditional=True,
-             warmup_epochs=5, age_loss_weight=1.0, seed=2),
+             warmup_epochs=5, age_loss_weight=1.0, seed=2), # parameter give best fairness
         data, total_epochs=100, verbose=1)
     print_eval(out)
 
