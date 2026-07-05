@@ -1,12 +1,17 @@
-# Age-Specific Bias Mitigation in OSA Detection (SIT723/SIT729 Deakin University)
+# Age-Specific Bias Mitigation in OSA Detection (SIT723/SIT729, Deakin University)
 
-This repository contains the implementation of a **Domain-Adversarial Neural Network (DANN)** designed to mitigate age-specific bias in deep learning-based obstructive sleep apnea (OSA) detection using single-lead ECG signals.
+This repository implements and compares two representation-level debiasing
+methods — a **Domain-Adversarial Neural Network (DANN)** and **Fair Supervised
+Contrastive Learning (FSCL)** — for mitigating age-specific bias in deep
+learning-based obstructive sleep apnea (OSA) detection from single-lead ECG.
+Both methods are built on top of a shared CNN–Transformer–LSTM baseline
+(Pham et al. 2025) and evaluated on the PhysioNet Apnea-ECG database.
 
 ## Project Details
 
 | **Field** | **Details** |
 | :--- | :--- |
-| **Unit** | SIT723 Research Techniques & Applications / SIT792 Minor Thesis |
+| **Unit** | SIT723 Research Techniques & Applications / SIT729 Minor Thesis |
 | **Institution** | Deakin University |
 | **Student** | [Trung Hoang Anh (Andre) Nguyen](https://www.linkedin.com/in/andre-nguyen-0298a9287/) |
 | **Supervisor** | [Dr. Md. Ahsan Habib](https://experts.deakin.edu.au/50940-ahsan-habib) |
@@ -15,40 +20,91 @@ This repository contains the implementation of a **Domain-Adversarial Neural Net
 
 ## Core Methodology
 
-The research focuses on resolving age-specific bias in sleep apnea detection.
-This implementation utilizes a hybrid **CNN-Transformer-LSTM** backbone (Pham et al. 2025) integrated with a **Gradient Reversal Layer (GRL)** and a shared bottleneck layer. This architecture forces the model to learn age-invariant features, ensuring that the diagnostic performance remains consistent across different demographic cohorts.
+The study addresses age-specific bias in ECG-based OSA detection, where
+diagnostic performance (sensitivity and specificity) can differ substantially
+between younger and older cohorts. All models share the same
+**CNN–Transformer–LSTM** backbone; the debiasing methods differ in how they
+shape the learned representation:
+
+* **Baseline** — the CNN–Transformer–LSTM classifier without any fairness
+  mechanism.
+* **DANN** — adds a **Gradient Reversal Layer (GRL)** and an age discriminator
+  that reads from a shared bottleneck, so the feature extractor is trained to
+  produce age-invariant representations while preserving apnea-discriminative
+  information. A class-conditional adversary is used to target both the
+  sensitivity and specificity gaps between age groups.
+* **FSCL** — Fair Supervised Contrastive Learning: pulls together same-class
+  samples across age groups and pushes apart different-class samples,
+  encouraging the embedding to be organised by apnea status rather than by age.
+
+The two demographic cohorts are:
+
+* **Young:** $\le 50$ years
+* **Old:** $> 50$ years
 
 ---
 
 ## Repository Structure
 
 * `preprocessing.py`
-    * Handles the standardization of the raw PhysioNet Apnea-ECG signals.
-    * Includes R-peak detection via the **Hamilton algorithm** and cubic spline interpolation.
+    * Standardises the raw PhysioNet Apnea-ECG signals, extracts one-minute
+      segments with margin context, performs R-peak detection via the
+      **Hamilton algorithm** with correction, and derives the R-peak amplitude
+      and R–R interval (RRI) channels via cubic-spline interpolation.
+    * Attaches age labels to every segment for the debiasing methods.
 
-* `age_stratified_preprocessing.py`
-    * Processes and partitions the dataset into two primary demographic cohorts:
-        * **Young:** $\le 50$ years
-        * **Old:** $> 50$ years
+* `baseline.py`
+    * The CNN–Transformer–LSTM baseline classifier (Pham et al. 2025), used as
+      the reference and as the shared backbone for DANN and FSCL.
 
 * `DANN.py`
-    * Contains the dual-head architecture featuring a primary **apnea task classifier** and a secondary **adversarial age discriminator**.
+    * The dual-head domain-adversarial model: an apnea classifier and an age
+      discriminator connected through a Gradient Reversal Layer, with a
+      class-conditional adversary variant for targeting the specificity gap.
 
-* `age_bias_testing.py`
-    * Script to run cross-age validation experiments (e.g., training on Young and testing on Old) to check the sensitivity and specificity of the model on different age groups".
+* `FSCL.py`
+    * Fair Supervised Contrastive Learning built on the same backbone; combines
+      a supervised contrastive fairness loss with the apnea classification
+      objective.
 
 * `/apnea-ecg-database-1.0.0`
-    * An empty directory intended for the [**PhysioNet Apnea-ECG Database**](https://physionet.org/content/apnea-ecg/1.0.0/).
-    * **Note:** Users must download the data from PhysioNet to this folder before running scripts.
+    * Placeholder directory for the [**PhysioNet Apnea-ECG Database**](https://physionet.org/content/apnea-ecg/1.0.0/).
+    * **Note:** users must download the data from PhysioNet into this folder
+      before running any script.
 
 * `/dataset`
-    * An empty directory intended for the output from preprocessing
+    * Output directory for the preprocessed data (pickle files) produced by
+      `preprocessing.py`, and the source that the training scripts read from.
+
+---
+
+## Getting Started
+
+1. Download the PhysioNet Apnea-ECG database into `apnea-ecg-database-1.0.0/`.
+2. Run `python preprocessing.py` to generate the preprocessed dataset in
+   `dataset/`.
+3. Train and evaluate the models:
+```bash
+   python baseline.py
+   python DANN.py
+   python FSCL.py
+```
 
 ---
 
 ## References
 
-1.  **Baseline Model:** Pham, D.T., & Mouček, R. (2025). Efficient sleep apnea detection using single-lead ECG with CNN-Transformer-LSTM. *Computers in Biology and Medicine*.
-2.  **DANN Theory:** Ganin, Y., et al. (2016). Domain-adversarial training of neural networks. *Journal of Machine Learning Research*.
-3.  **Bottleneck Framework:** Chen, X., et al. (2023). BAFNet: Bottleneck attention based fusion network for sleep apnea detection. *IEEE JBHI*.
-4.  **PhysioNet Apnea-ECG dataset:** Goldberger, A., Amaral, L., Glass, L., Hausdorff, J., Ivanov, P. C., Mark, R., ... & Stanley, H. E. (2000). PhysioBank, PhysioToolkit, and PhysioNet: Components of a new research resource for complex physiologic signals. Circulation [Online]. 101 (23), pp. e215–e220. RRID:SCR_007345.
+1. **Baseline model:** Pham, D. T., & Mouček, R. (2025). Efficient sleep apnea
+   detection using single-lead ECG with CNN–Transformer–LSTM. *Computers in
+   Biology and Medicine*.
+2. **DANN:** Ganin, Y., et al. (2016). Domain-adversarial training of neural
+   networks. *Journal of Machine Learning Research*.
+3. **FSCL:** Park, S., Lee, J., Lee, P., Hwang, S., Kim, D., & Byun, H. (2022).
+   Fair Contrastive Learning for Facial Attribute Classification. *CVPR*.
+4. **Bottleneck framework:** Chen, X., et al. (2023). BAFNet: Bottleneck
+   attention based fusion network for sleep apnea detection. *IEEE JBHI*.
+5. **PhysioNet Apnea-ECG dataset:** Goldberger, A., Amaral, L., Glass, L.,
+   Hausdorff, J., Ivanov, P. C., Mark, R., ... & Stanley, H. E. (2000).
+   PhysioBank, PhysioToolkit, and PhysioNet: Components of a new research
+   resource for complex physiologic signals. *Circulation* [Online]. 101 (23),
+   pp. e215–e220. RRID:SCR_007345.
