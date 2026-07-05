@@ -11,7 +11,6 @@ Both methods are built on top of a shared CNN–Transformer–LSTM baseline
 
 | **Field** | **Details** |
 | :--- | :--- |
-| **Unit** | SIT723 Research Techniques & Applications / SIT729 Minor Thesis |
 | **Institution** | Deakin University |
 | **Student** | [Trung Hoang Anh (Andre) Nguyen](https://www.linkedin.com/in/andre-nguyen-0298a9287/) |
 | **Supervisor** | [Dr. Md. Ahsan Habib](https://experts.deakin.edu.au/50940-ahsan-habib) |
